@@ -17,7 +17,3 @@ type Val []byte
 func Compare(a, b Key) int {
 	return bytes.Compare(a, b)
 }
-
-func Equal(a, b Key) bool {
-	return bytes.Equal(a, b)
-}

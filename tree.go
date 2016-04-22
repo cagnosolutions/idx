@@ -7,6 +7,8 @@ package idx
 // leaf node min ptrs (ORDER-1)/ round up
 // leaf node max ptrs ORDER-1
 
+var zeroVal Val
+
 // node represents a tree's node
 type node struct {
 	numKeys int
@@ -44,51 +46,19 @@ func (t *Tree) Add(key Key, value Val) {
 	// ignore duplicates: if a value
 	// can be found for a given key,
 	// simply return, don't insert
-	if t.Get(key) != nil {
+	if t.Has(key) {
 		return
 	}
 	// otherwise simply call set
 	t.Set(key, value)
 }
 
-// Put is mainly used for re-indexing
+// Set is mainly used for re-indexing
 // as it assumes the data to already
-// be contained on the disk, so it's
-// policy is to just forcefully put it
-// in the btree index. it will overwrite
-// duplicate keys, as it does not check
-// to see if the key already exists...
-func (t *Tree) Put(key Key, value Val) {
-	// create record ptr for given value
-	ptr := &record{key, value}
-	// if the tree is empty, start a new one
-	if t.root == nil {
-		t.root = startNewTree(ptr.key, ptr)
-		return
-	}
-	// tree already exists, and ready to insert a non
-	// duplicate value. find proper leaf to insert into
-	leaf := findLeaf(t.root, ptr.key)
-	// if the leaf has room, then insert key and record
-	if leaf.numKeys < ORDER-1 {
-		insertIntoLeaf(leaf, ptr.key, ptr)
-		return
-	}
-	// otherwise, insert, split, and balance... returning updated root
-	t.root = insertIntoLeafAfterSplitting(t.root, leaf, ptr.key, ptr)
-}
-
-// Set volatility inserts or updates a value based on provided key
+// be contained the tree/index. it will 
+// overwrite duplicate keys, as it does 
+// not check to see if the key exists...
 func (t *Tree) Set(key Key, value Val) {
-	// don't ignore duplicates: if
-	// a value can be found for a
-	// given key, simply update the
-	// record value and return
-	if r := getRecord(t.root, key); r != nil {
-		// update
-		r.val = value
-		return
-	}
 	// create record ptr for given value
 	ptr := &record{key, value}
 	// if the tree is empty, start a new one
@@ -109,7 +79,7 @@ func (t *Tree) Set(key Key, value Val) {
 }
 
 /*
- *	Add, Put, Set inserting internals
+ *	inserting internals
  */
 
 // first insertion, start a new tree
@@ -305,6 +275,7 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key Key, ptr *record) *node 
 	}
 	// create new leaf
 	newLeaf := &node{isLeaf: true}
+	
 	// writing to new leaf from split point to end of giginal leaf pre split
 	j = 0
 	for i = split; i < ORDER; i++ {
@@ -336,7 +307,7 @@ func (t *Tree) Get(key Key) Val {
 	if r != nil {
 		return r.val
 	}
-	return *new(Val)
+	return zeroVal
 }
 
 /*
@@ -392,7 +363,7 @@ func getRecord(root *node, key Key) *record {
 	}
 	var i int
 	for i = 0; i < n.numKeys; i++ {
-		if Equal(n.keys[i], key) {
+		if Compare(n.keys[i], key) == 0{
 			break
 		}
 	}
