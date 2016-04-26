@@ -46,3 +46,51 @@ func (d Data) Sync() {
 		panic(err)
 	}
 }
+
+func (d Data) Mremap(size int) Data {
+	fd := uintptr(unsafe.Pointer(&d[0]))
+	err := syscall.Munmap(d)
+	d = nil
+	if err != nil {
+		panic(err)
+	}
+	err = syscall.Ftruncate(int(fd), int64(align(size)))
+	if err != nil {
+		panic(err)
+	}
+	d, err = syscall.Mmap(int(fd), int64(0), size, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+	if err != nil {
+		panic(err)
+	}
+	return d
+}
+
+// open file helper
+func OpenFile(path string) (*os.File, string, int) {
+	fd, err := os.OpenFile(path, syscall.O_RDWR|syscall.O_CREAT|syscall.O_APPEND, 0644)
+	if err != nil {
+		panic(err)
+	}
+	fi, err := fd.Stat()
+	if err != nil {
+		panic(err)
+	}
+	return fd, sanitize(fi.Name()), int(fi.Size())
+}
+
+// round up to nearest pagesize -- helper
+func align(size int) int {
+	if size > 0 {
+		return (size + SYS_PAGE - 1) &^ (SYS_PAGE - 1)
+	}
+	return SYS_PAGE
+}
+
+// resize underlying file -- helper
+func resize(fd uintptr, size int) int {
+	err := syscall.Ftruncate(int(fd), int64(align(size)))
+	if err != nil {
+		panic(err)
+	}
+	return size
+}

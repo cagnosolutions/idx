@@ -11,6 +11,8 @@ type node struct {
 	isLeaf  bool
 }
 
+const ORDER = 32
+
 func (n *node) hasKey(key []byte) bool {
 	for i := 0; i < n.numKeys; i++ {
 		if bytes.Equal(key, n.keys[i]) {
@@ -24,6 +26,19 @@ func (n *node) hasKey(key []byte) bool {
 type record struct {
 	key []byte
 	val []byte
+}
+
+func EncVal(i int) []byte {
+	return []byte{
+		byte(uint32(i)),
+		byte(uint32(i) >> 8),
+		byte(uint32(i) >> 16),
+		byte(uint32(i) >> 24),
+	}
+}
+
+func DecVal(b []byte) int {
+	return int(uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24)
 }
 
 // Tree represents the main b+tree
@@ -350,7 +365,7 @@ func findLeaf(n *node, key []byte) *node {
 }
 
 // binary search utility
-func search(n *node, key Key) int {
+func search(n *node, key []byte) int {
 	lo, hi := 0, n.numKeys-1
 	for lo <= hi {
 		md := (lo + hi) >> 1
@@ -387,7 +402,7 @@ func getRecord(root *node, key []byte) *record {
 	}
 	var i int
 	for i = 0; i < n.numKeys; i++ {
-		if Compare(n.keys[i], key) == 0 {
+		if bytes.Compare(n.keys[i], key) == 0 {
 			break
 		}
 	}
@@ -420,7 +435,6 @@ func getNeighborIndex(n *node) int {
 		}
 	}
 	panic("Search for nonexistent ptr to node in parent.")
-	return 1
 }
 
 func removeEntryFromNode(n *node, key []byte, ptr interface{}) *node {

@@ -16,25 +16,27 @@ var (
 
 type Store struct {
 	primary *Tree
-	engine  *Engine
-	indexes map[string]*Tree
+	engine  *MappedData
+	//indexes map[string]*Tree
 	sync.RWMutex
 }
 
 func NewStore(path string, indexes ...string) *Store {
 	st := &Store{}
 	st.primary = NewTree()
-	st.engine = OpenEngine(path)
-	st.indexes = make(map[string]*Tree, 0)
-	for _, index := range indexes {
-		st.indexes[index] = NewTree()
-	}
+	//st.engine = OpenEngine(path)
+	//st.indexes = make(map[string]*Tree, 0)
+	//for _, index := range indexes {
+	//	st.indexes[index] = NewTree()
+	//}
 	for key, page := range st.engine.All() {
-		st.primary.Set(key, page)
+		st.primary.Set([]byte(key), EncVal(page))
 	}
+
 	return st
 }
 
+/*
 func (st *Store) Add(k []byte, v interface{}) error {
 	st.Lock()
 	defer st.Unlock()
@@ -72,7 +74,7 @@ func (st *Store) Set(k []byte, v interface{}) error {
 	st.filemap.Set(page, doc)
 	st.primary.Set(k, page)
 	return nil
-}
+}*/
 
 func (st *Store) Get(k []byte, ptr interface{}) error {
 	st.RLock()

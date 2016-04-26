@@ -2,9 +2,7 @@ package idx
 
 import (
 	"encoding/json"
-	"os"
 	"sync"
-	"syscall"
 )
 
 type StorageEngine interface {
@@ -96,7 +94,7 @@ func (e *Engine) CloseEngine() {
 }
 
 // open file helper
-func OpenFile(path string) (*os.File, string, int) {
+/*func OpenFile(path string) (*os.File, string, int) {
 	fd, err := os.OpenFile(path, syscall.O_RDWR|syscall.O_CREAT|syscall.O_APPEND, 0644)
 	if err != nil {
 		panic(err)
@@ -106,9 +104,9 @@ func OpenFile(path string) (*os.File, string, int) {
 		panic(err)
 	}
 	return fd, sanitize(fi.Name()), int(fi.Size())
-}
+}*/
 
-// round up to nearest pagesize -- helper
+/*// round up to nearest pagesize -- helper
 func align(size int) int {
 	if size > 0 {
 		return (size + SYS_PAGE - 1) &^ (SYS_PAGE - 1)
@@ -136,4 +134,4 @@ func strip(b []byte) []byte {
 		}
 	}
 	return b
-}
+}*/
