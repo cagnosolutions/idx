@@ -1,27 +1,29 @@
 package idx
 
-// ORDER is defined as the maximum number of pointers in any given node
-// MIN_ORDER <= ORDER <= MAX_ORDER
-// internal node min ptrs = ORDER/2 round up
-// internal node max ptrs = ORDER
-// leaf node min ptrs (ORDER-1)/ round up
-// leaf node max ptrs ORDER-1
-
-var zeroVal Val
+import "bytes"
 
 // node represents a tree's node
 type node struct {
 	numKeys int
-	keys    [ORDER - 1]Key
+	keys    [ORDER - 1][]byte
 	ptrs    [ORDER]interface{}
 	parent  *node
 	isLeaf  bool
 }
 
+func (n *node) hasKey(key []byte) bool {
+	for i := 0; i < n.numKeys; i++ {
+		if bytes.Equal(key, n.keys[i]) {
+			return true
+		}
+	}
+	return false
+}
+
 // leaf node record
 type record struct {
-	key Key
-	val Val
+	key []byte
+	val []byte
 }
 
 // Tree represents the main b+tree
@@ -36,36 +38,49 @@ func NewTree() *Tree {
 
 // Has returns a boolean indicating weather or not the
 // provided key and associated record / value exists.
-func (t *Tree) Has(key Key) bool {
+func (t *Tree) Has(key []byte) bool {
 	return getRecord(t.root, key) != nil
 }
 
-// Add inserts a new record / value using provided key.
+// Add inserts a new record using provided key.
 // It only inserts if the key does not already exist.
-func (t *Tree) Add(key Key, value Val) {
-	// ignore duplicates: if a value
-	// can be found for a given key,
-	// simply return, don't insert
-	if t.Has(key) {
+func (t *Tree) Add(key, val []byte) {
+	// if the tree is empty
+	if t.root == nil {
+		t.root = startNewTree(key, &record{key, val})
 		return
 	}
-	// otherwise simply call set
-	t.Set(key, value)
+	// tree already exists, lets see what we
+	// get when we try to find the correct leaf
+	leaf := findLeaf(t.root, key)
+	// ensure the leaf does not contain the key
+	if leaf.hasKey(key) {
+		return
+	}
+	// create record ptr for given value
+	ptr := &record{key, val}
+	// tree already exists, and ready to insert into
+	if leaf.numKeys < ORDER-1 {
+		insertIntoLeaf(leaf, ptr.key, ptr)
+		return
+	}
+	// otherwise, insert, split, and balance... returning updated root
+	t.root = insertIntoLeafAfterSplitting(t.root, leaf, ptr.key, ptr)
 }
 
 // Set is mainly used for re-indexing
 // as it assumes the data to already
-// be contained the tree/index. it will 
-// overwrite duplicate keys, as it does 
+// be contained the tree/index. it will
+// overwrite duplicate keys, as it does
 // not check to see if the key exists...
-func (t *Tree) Set(key Key, value Val) {
-	// create record ptr for given value
-	ptr := &record{key, value}
+func (t *Tree) Set(key, val []byte) {
 	// if the tree is empty, start a new one
 	if t.root == nil {
-		t.root = startNewTree(ptr.key, ptr)
+		t.root = startNewTree(key, &record{key, val})
 		return
 	}
+	// create record ptr for given value
+	ptr := &record{key, val}
 	// tree already exists, and ready to insert a non
 	// duplicate value. find proper leaf to insert into
 	leaf := findLeaf(t.root, ptr.key)
@@ -83,7 +98,7 @@ func (t *Tree) Set(key Key, value Val) {
  */
 
 // first insertion, start a new tree
-func startNewTree(key Key, ptr *record) *node {
+func startNewTree(key []byte, ptr *record) *node {
 	root := &node{isLeaf: true}
 	root.keys[0] = key
 	root.ptrs[0] = ptr
@@ -94,7 +109,7 @@ func startNewTree(key Key, ptr *record) *node {
 }
 
 // creates a new root for two sub-trees and inserts the key into the new root
-func insertIntoNewRoot(left *node, key Key, right *node) *node {
+func insertIntoNewRoot(left *node, key []byte, right *node) *node {
 	root := &node{}
 	root.keys[0] = key
 	root.ptrs[0] = left
@@ -107,18 +122,28 @@ func insertIntoNewRoot(left *node, key Key, right *node) *node {
 }
 
 // insert a new node (leaf or internal) into tree, return root of tree
-func insertIntoParent(root, left *node, key Key, right *node) *node {
-	var leftIndex int
-	var parent *node
-	parent = left.parent
-	if parent == nil {
+func insertIntoParent(root, left *node, key []byte, right *node) *node {
+	/*
+		var leftIndex int
+		var parent *node
+		parent := left.parent
+		if parent == nil {
+			return insertIntoNewRoot(left, key, right)
+		}
+		leftIndex = getLeftIndex(parent, left)
+		if parent.numKeys < ORDER-1 {
+			return insertIntoNode(root, parent, leftIndex, key, right)
+		}
+		return insertIntoNodeAfterSplitting(root, parent, leftIndex, key, right)
+	*/
+	if left.parent == nil {
 		return insertIntoNewRoot(left, key, right)
 	}
-	leftIndex = getLeftIndex(parent, left)
-	if parent.numKeys < ORDER-1 {
-		return insertIntoNode(root, parent, leftIndex, key, right)
+	leftIndex := getLeftIndex(left.parent, left)
+	if left.parent.numKeys < ORDER-1 {
+		return insertIntoNode(root, left.parent, leftIndex, key, right)
 	}
-	return insertIntoNodeAfterSplitting(root, parent, leftIndex, key, right)
+	return insertIntoNodeAfterSplitting(root, left.parent, leftIndex, key, right)
 }
 
 // helper->insert_into_parent
@@ -137,9 +162,8 @@ func getLeftIndex(parent, left *node) int {
  */
 
 // insert a new key, ptr to a node
-func insertIntoNode(root, n *node, leftIndex int, key Key, right *node) *node {
-	var i int
-	for i = n.numKeys; i > leftIndex; i-- {
+func insertIntoNode(root, n *node, leftIndex int, key []byte, right *node) *node {
+	for i := n.numKeys; i > leftIndex; i-- {
 		n.ptrs[i+1] = n.ptrs[i]
 		n.keys[i] = n.keys[i-1]
 	}
@@ -150,7 +174,7 @@ func insertIntoNode(root, n *node, leftIndex int, key Key, right *node) *node {
 }
 
 // insert a new key, ptr to a node causing node to split
-func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key Key, right *node) *node {
+func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte, right *node) *node {
 	var i, j int
 	var child *node
 	var tmpKeys [ORDER][]byte
@@ -225,9 +249,9 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key Key, r
  */
 
 // inserts a new key and *record into a leaf, then returns leaf
-func insertIntoLeaf(leaf *node, key Key, ptr *record) {
+func insertIntoLeaf(leaf *node, key []byte, ptr *record) {
 	var i, insertionPoint int
-	for insertionPoint < leaf.numKeys && Compare(leaf.keys[insertionPoint], key) == -1 {
+	for insertionPoint < leaf.numKeys && bytes.Compare(leaf.keys[insertionPoint], key) == -1 {
 		insertionPoint++
 	}
 	for i = leaf.numKeys; i > insertionPoint; i-- {
@@ -241,10 +265,10 @@ func insertIntoLeaf(leaf *node, key Key, ptr *record) {
 
 // inserts a new key and *record into a leaf, so as
 // to exceed the order, causing the leaf to be split
-func insertIntoLeafAfterSplitting(root, leaf *node, key Key, ptr *record) *node {
+func insertIntoLeafAfterSplitting(root, leaf *node, key []byte, ptr *record) *node {
 	// perform linear search to find index to insert new record
 	var insertionIndex int
-	for insertionIndex < ORDER-1 && Compare(leaf.keys[insertionIndex], key) == -1 {
+	for insertionIndex < ORDER-1 && bytes.Compare(leaf.keys[insertionIndex], key) == -1 {
 		insertionIndex++
 	}
 	var tmpKeys [ORDER][]byte
@@ -275,7 +299,7 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key Key, ptr *record) *node 
 	}
 	// create new leaf
 	newLeaf := &node{isLeaf: true}
-	
+
 	// writing to new leaf from split point to end of giginal leaf pre split
 	j = 0
 	for i = split; i < ORDER; i++ {
@@ -302,12 +326,12 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key Key, ptr *record) *node 
 }
 
 // Get finds a record for a given key
-func (t *Tree) Get(key Key) Val {
+func (t *Tree) Get(key []byte) []byte {
 	r := getRecord(t.root, key)
 	if r != nil {
 		return r.val
 	}
-	return zeroVal
+	return nil
 }
 
 /*
@@ -315,7 +339,7 @@ func (t *Tree) Get(key Key) Val {
  */
 
 // find leaf type node for a given key
-func findLeaf(n *node, key Key) *node {
+func findLeaf(n *node, key []byte) *node {
 	if n == nil {
 		return n
 	}
@@ -330,7 +354,7 @@ func search(n *node, key Key) int {
 	lo, hi := 0, n.numKeys-1
 	for lo <= hi {
 		md := (lo + hi) >> 1
-		switch cmp := Compare(key, n.keys[md]); {
+		switch cmp := bytes.Compare(key, n.keys[md]); {
 		case cmp > 0:
 			lo = md + 1
 		case cmp == 0:
@@ -356,14 +380,14 @@ func findFirstLeaf(root *node) *node {
 
 // getRecord returns the record for
 // a given key if it exists
-func getRecord(root *node, key Key) *record {
+func getRecord(root *node, key []byte) *record {
 	n := findLeaf(root, key)
 	if n == nil {
 		return nil
 	}
 	var i int
 	for i = 0; i < n.numKeys; i++ {
-		if Compare(n.keys[i], key) == 0{
+		if Compare(n.keys[i], key) == 0 {
 			break
 		}
 	}
@@ -374,8 +398,8 @@ func getRecord(root *node, key Key) *record {
 }
 
 // Del deletes a record by key
-func (t *Tree) Del(key Key) {
-	record := t.Get(key)
+func (t *Tree) Del(key []byte) {
+	record := getRecord(t.root, key)
 	leaf := findLeaf(t.root, key)
 	if record != nil && leaf != nil {
 		// remove from tree, and rebalance
@@ -399,10 +423,10 @@ func getNeighborIndex(n *node) int {
 	return 1
 }
 
-func removeEntryFromNode(n *node, key Key, ptr interface{}) *node {
+func removeEntryFromNode(n *node, key []byte, ptr interface{}) *node {
 	var i, numPtrs int
 	// remove key and shift over keys accordingly
-	for Compare(n.keys[i], key) != 0 {
+	for !bytes.Equal(n.keys[i], key) {
 		i++
 	}
 	for i++; i < n.numKeys; i++ {
@@ -631,12 +655,12 @@ func destroyTreeNodes(n *node) {
 }
 
 // All returns all of the values in the tree (lexicographically)
-func (t *Tree) All() []Val {
+func (t *Tree) All() [][]byte {
 	leaf := findFirstLeaf(t.root)
 	if leaf == nil {
 		return nil
 	}
-	var vals []Val
+	var vals [][]byte
 	for {
 		for i := 0; i < leaf.numKeys; i++ {
 			if leaf.ptrs[i] != nil {
