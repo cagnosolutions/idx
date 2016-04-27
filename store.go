@@ -1,7 +1,6 @@
 package idx
 
 import (
-	"bytes"
 	"errors"
 	"sync"
 )
@@ -15,42 +14,34 @@ var (
 )
 
 type Store struct {
-	primary *Tree
-	engine  *MappedData
-	//indexes map[string]*Tree
+	index  *Tree
+	engine *MappedData
 	sync.RWMutex
 }
 
-func NewStore(path string, indexes ...string) *Store {
+func NewStore(path string) *Store {
 	st := &Store{}
-	st.primary = NewTree()
-	//st.engine = OpenEngine(path)
-	//st.indexes = make(map[string]*Tree, 0)
-	//for _, index := range indexes {
-	//	st.indexes[index] = NewTree()
-	//}
+	st.index = NewTree()
+	st.engine = OpenMappedData(path)
 	for key, page := range st.engine.All() {
-		st.primary.Set([]byte(key), EncVal(page))
+		st.index.Set([]byte(key), page)
 	}
-
 	return st
 }
 
-/*
 func (st *Store) Add(k []byte, v interface{}) error {
 	st.Lock()
 	defer st.Unlock()
-	if !st.primary.Has(k) {
-		doc, err := encode(k, v)
+	if !st.index.Has(k) {
+		doc, err := encode(string(k), v)
 		if err != nil {
 			return err
 		}
-		page := st.metamap.Add()
+		page := st.engine.Add(doc)
 		if page == -1 {
 			return ErrStoreFull
 		}
-		st.filemap.Set(page, doc)
-		st.primary.Set(k, page)
+		st.index.Set(k, page)
 		return nil
 	}
 	return ErrExists
@@ -59,48 +50,53 @@ func (st *Store) Add(k []byte, v interface{}) error {
 func (st *Store) Set(k []byte, v interface{}) error {
 	st.Lock()
 	defer st.Unlock()
-	doc, err := encode(k, v)
+	doc, err := encode(string(k), v)
 	if err != nil {
 		return err
 	}
-	if v := st.primary.Get(k); v != nil {
-		st.filemap.Set(v, doc)
+	rec := st.index.Get(k)
+	if rec != nil {
+		st.engine.Set(rec.Val, doc)
 		return nil
 	}
-	page := st.metamap.Add()
+	page := st.engine.Add(doc)
 	if page == -1 {
 		return ErrStoreFull
 	}
-	st.filemap.Set(page, doc)
-	st.primary.Set(k, page)
+	rec.Key = k
+	rec.Val = page
 	return nil
-}*/
+}
 
 func (st *Store) Get(k []byte, ptr interface{}) error {
 	st.RLock()
 	defer st.RUnlock()
-	if v := st.primary.Get(k); v != nil {
-		if err := decode(v, ptr); err != nil {
-			return err
+	if r := st.index.Get(k); r != nil {
+		if v := st.engine.Get(r.Val); v != nil {
+			if err := decode(v, ptr); err != nil {
+				return err
+			}
+			return nil
 		}
-		return nil
 	}
 	return ErrNotFound
 }
 
 func (st *Store) Del(k []byte) {
 	st.Lock()
-	st.primary.Del(k)
+	st.index.Del(k)
 	st.Unlock()
 }
 
+/*
 func (st *Store) All(ptr interface{}) error {
 	st.RLock()
 	defer st.RUnlock()
-	records := bytes.Join([][]byte(st.primary.All()), []byte{','})
+	records := bytes.Join([][]byte(st.index.All()), []byte{','})
 	records = append([]byte{'['}, append(records, byte(']'))...)
 	if err := decode(records, ptr); err != nil {
 		return err
 	}
 	return nil
 }
+*/
