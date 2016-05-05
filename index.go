@@ -1,6 +1,9 @@
 package idx
 
-import "bytes"
+import (
+	"bytes"
+	"sync"
+)
 
 const ORDER = 32
 
@@ -152,23 +155,32 @@ func getLeftIndex(parent, left *node) int {
 
 // insert a new key, ptr to a node
 func insertIntoNode(root, n *node, leftIndex int, key []byte, right *node) *node {
-	for i := n.numKeys; i > leftIndex; i-- {
+	/*for i := n.numKeys; i > leftIndex; i-- {
 		n.ptrs[i+1] = n.ptrs[i]
 		n.keys[i] = n.keys[i-1]
-	}
+	}*/
+
+	copy(n.ptrs[leftIndex+2:], n.ptrs[leftIndex+1:])
+	copy(n.keys[leftIndex+1:], n.keys[leftIndex:])
+
 	n.ptrs[leftIndex+1] = right
 	n.keys[leftIndex] = key
 	n.numKeys++
 	return root
 }
 
+var PtempKeys = sync.Pool{New: func() interface{} { return [ORDER][]byte{} }}
+
+var PtempPtrs = sync.Pool{New: func() interface{} { return [ORDER + 1]interface{}{} }}
+
 // insert a new key, ptr to a node causing node to split
 func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte, right *node) *node {
 	var i, j int
-	var child *node
-	var tmpKeys [ORDER][]byte
-	var tmpPtrs [ORDER + 1]interface{}
-	var prime []byte
+	//var child *node
+	//var prime []byte
+
+	tmpKeys := PtempKeys.Get().([ORDER][]byte)
+	tmpPtrs := PtempPtrs.Get().([ORDER + 1]interface{})
 
 	for i < oldNode.numKeys+1 {
 		if j == leftIndex+1 {
@@ -205,7 +217,17 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
 	}
 
 	oldNode.ptrs[i] = tmpPtrs[i]
-	prime = tmpKeys[split-1]
+
+	/*oldNode.numKeys = split
+	copy(oldNode.keys[:split], tmpKeys[:split])
+	copy(oldNode.ptrs[:split+1], tmpPtrs[:split+1])
+
+	prime := tmpKeys[split-1]
+
+	end := ORDER - (split + 1)
+	copy(oldNode.keys[:end], tmpKeys[split+1:])
+	copy(oldNode.ptrs[:end+1], tmpPtrs[split+2:])
+	newNode.numKeys = end*/
 
 	j = 0
 	for i++; i < ORDER; i++ {
@@ -218,17 +240,22 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
 	newNode.ptrs[j] = tmpPtrs[i]
 
 	// free tmps...
-	for i = 0; i < ORDER; i++ {
-		tmpKeys[i] = nil
-		tmpPtrs[i] = nil
-	}
-	tmpPtrs[ORDER] = nil
+	// for i = 0; i < ORDER; i++ {
+	// 	tmpKeys[i] = nil
+	// 	tmpPtrs[i] = nil
+	// }
+	// tmpPtrs[ORDER] = nil
+
+	PtempKeys.Put(tmpKeys)
+	PtempPtrs.Put(tmpPtrs)
 
 	newNode.parent = oldNode.parent
 
 	for i = 0; i <= newNode.numKeys; i++ {
-		child = newNode.ptrs[i].(*node)
-		child.parent = newNode
+		/*child = newNode.ptrs[i].(*node)
+		child.parent = newNode*/
+
+		newNode.ptrs[i].(*node).parent = newNode
 	}
 	return insertIntoParent(root, oldNode, prime, newNode)
 }
