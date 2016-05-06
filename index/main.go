@@ -1,23 +1,27 @@
 package main
 
-import "github.com/cagnosolutions/idx"
+import (
+	"fmt"
+
+	"github.com/cagnosolutions/idx"
+)
 
 func main() {
 	t := idx.NewTree()
-	t.Set([]byte(`1`), 1)
-	t.Set([]byte(`2`), 2)
-	t.Set([]byte(`222`), 222)
-	t.Set([]byte(`3`), 3)
-	t.Set([]byte(`4`), 4)
-	t.Set([]byte(`12`), 12)
-	t.Set([]byte(`5`), 5)
-	t.Set([]byte(`6`), 6)
-	t.Set([]byte(`9`), 9)
-	t.Set([]byte(`10`), 10)
-	t.Set([]byte(`8`), 8)
-	t.Set([]byte(`11`), 11)
-	t.Set([]byte(`7`), 7)
-	t.Set([]byte(`13`), 13)
-	t.Set([]byte(`14`), 14)
-	t.BFS()
+	t.Set([]byte(`001`), 1)
+	t.Set([]byte(`002`), 2)
+	t.Set([]byte(`003`), 3)
+	t.Set([]byte(`004`), 4)
+	t.Set([]byte(`012`), 12)
+	t.Set([]byte(`005`), 5)
+	t.Set([]byte(`006`), 6)
+	t.Set([]byte(`009`), 9)
+	t.Set([]byte(`010`), 10)
+	t.Set([]byte(`008`), 8)
+	t.Set([]byte(`011`), 11)
+	t.Set([]byte(`007`), 7)
+	t.Set([]byte(`013`), 13)
+	t.Set([]byte(`014`), 14)
+	fmt.Println(t.Count())
+	fmt.Println(t.String())
 }

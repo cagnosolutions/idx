@@ -3,10 +3,10 @@ package idx
 import (
 	"bytes"
 	"fmt"
-	"sync"
+	"strings"
 )
 
-const ORDER = 32
+const ORDER = 4
 
 // node represents a tree's node
 type node struct {
@@ -15,6 +15,7 @@ type node struct {
 	ptrs    [ORDER]interface{}
 	parent  *node
 	isLeaf  bool
+	next    *node
 }
 
 func (n *node) hasKey(key []byte) bool {
@@ -170,9 +171,8 @@ func insertIntoNode(root, n *node, leftIndex int, key []byte, right *node) *node
 	return root
 }
 
-var PtempKeys = sync.Pool{New: func() interface{} { return [ORDER][]byte{} }}
-
-var PtempPtrs = sync.Pool{New: func() interface{} { return [ORDER + 1]interface{}{} }}
+//var PtempKeys = sync.Pool{New: func() interface{} { return [ORDER][]byte{} }}
+//var PtempPtrs = sync.Pool{New: func() interface{} { return [ORDER + 1]interface{}{} }}
 
 // insert a new key, ptr to a node causing node to split
 func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte, right *node) *node {
@@ -180,8 +180,11 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
 	//var child *node
 	//var prime []byte
 
-	tmpKeys := PtempKeys.Get().([ORDER][]byte)
-	tmpPtrs := PtempPtrs.Get().([ORDER + 1]interface{})
+	//tmpKeys := PtempKeys.Get().([ORDER][]byte)
+	//tmpPtrs := PtempPtrs.Get().([ORDER + 1]interface{})
+
+	var tmpKeys [ORDER][]byte
+	var tmpPtrs [ORDER + 1]interface{}
 
 	for i < oldNode.numKeys+1 {
 		if j == leftIndex+1 {
@@ -245,14 +248,14 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
 	newNode.ptrs[j] = tmpPtrs[i]
 
 	// free tmps...
-	// for i = 0; i < ORDER; i++ {
-	// 	tmpKeys[i] = nil
-	// 	tmpPtrs[i] = nil
-	// }
-	// tmpPtrs[ORDER] = nil
+	for i = 0; i < ORDER; i++ {
+		tmpKeys[i] = nil
+		tmpPtrs[i] = nil
+	}
+	tmpPtrs[ORDER] = nil
 
-	PtempKeys.Put(tmpKeys)
-	PtempPtrs.Put(tmpPtrs)
+	//PtempKeys.Put(tmpKeys)
+	//PtempPtrs.Put(tmpPtrs)
 
 	newNode.parent = oldNode.parent
 
@@ -408,18 +411,20 @@ func (t *Tree) BFS() {
 		h++
 	}
 	fmt.Printf(`[`)
-	for h > 0 {
+	for h >= 0 {
 		for i := 0; i < ORDER; i++ {
-			fmt.Printf(`[%s]`, c.keys[i])
 			if i == ORDER-1 && c.ptrs[ORDER-1] != nil {
 				fmt.Printf(` -> `)
 				c = c.ptrs[ORDER-1].(*node)
 				i = 0
+				continue
 			}
+			fmt.Printf(`[%s]`, c.keys[i])
 		}
+		fmt.Println()
 		h--
 	}
-	fmt.Printf(`]`)
+	fmt.Printf(`]\n`)
 }
 
 // finds the first leaf in the tree (lexicographically)
@@ -749,4 +754,84 @@ func cut(length int) int {
 		return length / 2
 	}
 	return length/2 + 1
+}
+
+/*
+ * Printing methods
+ */
+
+var queue *node = nil
+
+func enQueue(n *node) {
+	var c *node
+	if queue == nil {
+		queue = n
+		queue.next = nil
+	} else {
+		c = queue
+		for c.next != nil {
+			c = c.next
+		}
+		c.next = n
+		n.next = nil
+	}
+}
+
+func deQueue() *node {
+	var n *node = queue
+	queue = queue.next
+	n.next = nil
+	return n
+}
+
+func pathToRoot(root, child *node) int {
+	var length int
+	var c *node = child
+	for c != root {
+		c = c.parent
+		length++
+	}
+	return length
+}
+
+func (t *Tree) String() string {
+	var i, rank, newRank int
+	if t.root == nil {
+		return "[]"
+	}
+	queue = nil
+	var tree string
+	enQueue(t.root)
+	tree = "[\n["
+	for queue != nil {
+		n := deQueue()
+		if n.parent != nil && n == n.parent.ptrs[0] {
+			newRank = pathToRoot(t.root, n)
+			if newRank != rank {
+				rank = newRank
+				f := strings.LastIndex(tree, ",")
+				tree = tree[:f] + tree[f+1:]
+				tree += "],\n["
+			}
+		}
+		tree += "["
+		var keys []string
+		for i = 0; i < n.numKeys; i++ {
+			keys = append(keys, fmt.Sprintf("%q", n.keys[i]))
+			//tree += fmt.Sprintf("%s", n.keys[i])
+		}
+		tree += strings.Join(keys, ",")
+		if !n.isLeaf {
+			for i = 0; i <= n.numKeys; i++ {
+				enQueue(n.ptrs[i].(*node))
+			}
+		}
+		tree += "],"
+	}
+	//tree[f] = "]"
+	f := strings.LastIndex(tree, ",")
+	tree = tree[:f] + tree[f+1:]
+	tree += "]\n]"
+	tree += "\n"
+	return tree
 }
