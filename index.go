@@ -802,7 +802,7 @@ func (t *Tree) String() string {
 	queue = nil
 	var tree string
 	enQueue(t.root)
-	tree = "[\n["
+	tree = "[["
 	for queue != nil {
 		n := deQueue()
 		if n.parent != nil && n == n.parent.ptrs[0] {
@@ -811,14 +811,13 @@ func (t *Tree) String() string {
 				rank = newRank
 				f := strings.LastIndex(tree, ",")
 				tree = tree[:f] + tree[f+1:]
-				tree += "],\n["
+				tree += "],["
 			}
 		}
 		tree += "["
 		var keys []string
 		for i = 0; i < n.numKeys; i++ {
 			keys = append(keys, fmt.Sprintf("%q", n.keys[i]))
-			//tree += fmt.Sprintf("%s", n.keys[i])
 		}
 		tree += strings.Join(keys, ",")
 		if !n.isLeaf {
@@ -828,10 +827,8 @@ func (t *Tree) String() string {
 		}
 		tree += "],"
 	}
-	//tree[f] = "]"
 	f := strings.LastIndex(tree, ",")
 	tree = tree[:f] + tree[f+1:]
-	tree += "]\n]"
-	tree += "\n"
+	tree += "]]"
 	return tree
 }

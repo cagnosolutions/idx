@@ -2,26 +2,85 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"strconv"
 
 	"github.com/cagnosolutions/idx"
 )
 
+var t *idx.Tree = idx.NewTree()
+
 func main() {
-	t := idx.NewTree()
-	t.Set([]byte(`001`), 1)
-	t.Set([]byte(`002`), 2)
-	t.Set([]byte(`003`), 3)
-	t.Set([]byte(`004`), 4)
-	t.Set([]byte(`012`), 12)
-	t.Set([]byte(`005`), 5)
-	t.Set([]byte(`006`), 6)
-	t.Set([]byte(`009`), 9)
-	t.Set([]byte(`010`), 10)
-	t.Set([]byte(`008`), 8)
-	t.Set([]byte(`011`), 11)
-	t.Set([]byte(`007`), 7)
-	t.Set([]byte(`013`), 13)
-	t.Set([]byte(`014`), 14)
-	fmt.Println(t.Count())
-	fmt.Println(t.String())
+	http.HandleFunc("/btree/set", HandleCORS(set))
+	http.HandleFunc("/btree/del", HandleCORS(del))
+	http.HandleFunc("/btree/get", HandleCORS(get))
+	http.HandleFunc("/btree/clr", HandleCORS(clr))
+	http.ListenAndServe(":8080", nil)
+}
+
+func HandleCORS(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		fn(w, r)
+	}
+}
+
+func set(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; utf-8")
+	w.WriteHeader(http.StatusOK)
+	if r.Method == "POST" {
+		if k := r.FormValue("key"); k != "" {
+			i, _ := strconv.Atoi(k)
+			t.Set([]byte(k), i)
+			fmt.Fprintf(w, `%s`, t)
+			return
+		}
+	}
+	fmt.Fprintf(w, `%s`, "[]")
+	return
+}
+
+func del(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; utf-8")
+	w.WriteHeader(http.StatusOK)
+	if r.Method == "POST" {
+		if k := r.FormValue("key"); k != "" {
+			t.Del([]byte(k))
+			fmt.Fprintf(w, `%s`, t)
+			return
+		}
+	}
+	fmt.Fprintf(w, `%s`, "[]")
+	return
+}
+
+func get(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; utf-8")
+	w.WriteHeader(http.StatusOK)
+	if r.Method == "POST" {
+		if k := r.FormValue("key"); k != "" {
+			r := t.Get([]byte(k))
+			if r == nil {
+				fmt.Fprintf(w, `%s`, "ERROR")
+				return
+			}
+			fmt.Fprintf(w, `%v`, r.Val)
+			return
+		}
+	}
+	fmt.Fprintf(w, `%s`, "[]")
+	return
+}
+
+func clr(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; utf-8")
+	w.WriteHeader(http.StatusOK)
+	if r.Method == "POST" {
+		t.Close()
+		t = idx.NewTree()
+		fmt.Fprintf(w, `%s`, t)
+		return
+	}
+	fmt.Fprintf(w, `%s`, "[]")
+	return
 }
