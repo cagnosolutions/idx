@@ -2,6 +2,7 @@ package idx
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 )
 
@@ -218,16 +219,20 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
 
 	oldNode.ptrs[i] = tmpPtrs[i]
 
-	/*oldNode.numKeys = split
-	copy(oldNode.keys[:split], tmpKeys[:split])
-	copy(oldNode.ptrs[:split+1], tmpPtrs[:split+1])
+	/*
+		oldNode.numKeys = split
+		copy(oldNode.keys[:split], tmpKeys[:split])
+		copy(oldNode.ptrs[:split+1], tmpPtrs[:split+1])
+	*/
 
 	prime := tmpKeys[split-1]
 
-	end := ORDER - (split + 1)
-	copy(oldNode.keys[:end], tmpKeys[split+1:])
-	copy(oldNode.ptrs[:end+1], tmpPtrs[split+2:])
-	newNode.numKeys = end*/
+	/*
+		end := ORDER - (split + 1)
+		copy(oldNode.keys[:end], tmpKeys[split+1:])
+		copy(oldNode.ptrs[:end+1], tmpPtrs[split+2:])
+		newNode.numKeys = end
+	*/
 
 	j = 0
 	for i++; i < ORDER; i++ {
@@ -390,6 +395,31 @@ func search(n *node, key []byte) int {
 		}
 	}
 	return lo
+}
+
+// breadth-first-search algorithm, kind of
+func (t *Tree) BFS() {
+	if t.root == nil {
+		return
+	}
+	c, h := t.root, 0
+	for !c.isLeaf {
+		c = c.ptrs[0].(*node)
+		h++
+	}
+	fmt.Printf(`[`)
+	for h > 0 {
+		for i := 0; i < ORDER; i++ {
+			fmt.Printf(`[%s]`, c.keys[i])
+			if i == ORDER-1 && c.ptrs[ORDER-1] != nil {
+				fmt.Printf(` -> `)
+				c = c.ptrs[ORDER-1].(*node)
+				i = 0
+			}
+		}
+		h--
+	}
+	fmt.Printf(`]`)
 }
 
 // finds the first leaf in the tree (lexicographically)
