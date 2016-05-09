@@ -15,6 +15,7 @@ func main() {
 	http.HandleFunc("/btree/del", HandleCORS(del))
 	http.HandleFunc("/btree/get", HandleCORS(get))
 	http.HandleFunc("/btree/clr", HandleCORS(clr))
+	http.HandleFunc("/btree/mlt", HandleCORS(mlt))
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -31,7 +32,7 @@ func set(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		if k := r.FormValue("key"); k != "" {
 			i, _ := strconv.Atoi(k)
-			t.Put([]byte(k), i)
+			t.Set([]byte(k), i)
 			fmt.Fprintf(w, `%s`, t)
 			return
 		}
@@ -78,6 +79,26 @@ func clr(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		t.Close()
 		t = idx.NewTree()
+		fmt.Fprintf(w, `%s`, t)
+		return
+	}
+	fmt.Fprintf(w, `%s`, "[]")
+	return
+}
+
+func mlt(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; utf-8")
+	w.WriteHeader(http.StatusOK)
+	num, err := strconv.Atoi(r.FormValue("key"))
+	if err != nil {
+		fmt.Fprintf(w, "[]")
+		return
+	}
+	if r.Method == "POST" {
+		for i := 1; i <= num; i++ {
+			k := fmt.Sprintf("%0.3d", i)
+			t.Set([]byte(k), i)
+		}
 		fmt.Fprintf(w, `%s`, t)
 		return
 	}

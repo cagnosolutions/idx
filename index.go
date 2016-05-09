@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const ORDER = 4
+const ORDER = 8
 
 // node represents a tree's node
 type node struct {
@@ -98,29 +98,6 @@ func (t *Tree) Set(key []byte, val int) {
 	}
 	// otherwise, insert, split, and balance... returning updated root
 	t.root = insertIntoLeafAfterSplitting(t.root, leaf, ptr.Key, ptr)
-}
-
-func (t *Tree) Put(key []byte, val int) {
-	if find(t.root, key) != nil {
-		return
-	}
-
-	ptr := &Record{key, val}
-
-	if t.root == nil {
-		t.root = startNewTree(key, ptr)
-		return
-	}
-
-	leaf := findLeaf(t.root, key)
-
-	if leaf.numKeys < ORDER-1 {
-		insertIntoLeaf(leaf, key, ptr)
-		return
-	}
-
-	t.root = insertIntoLeafAfterSplitting(t.root, leaf, key, ptr)
-
 }
 
 /*
@@ -410,7 +387,7 @@ func find(root *node, key []byte) *Record {
  *	Get node internals
  */
 
-func _findLeaf(root *node, key []byte) *node {
+func findLeaf(root *node, key []byte) *node {
 	var i int
 	var c *node = root
 	if c == nil {
@@ -431,7 +408,7 @@ func _findLeaf(root *node, key []byte) *node {
 }
 
 // find leaf type node for a given key
-func findLeaf(n *node, key []byte) *node {
+func _findLeaf(n *node, key []byte) *node {
 	if n == nil {
 		return n
 	}
