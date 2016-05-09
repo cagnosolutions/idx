@@ -100,6 +100,29 @@ func (t *Tree) Set(key []byte, val int) {
 	t.root = insertIntoLeafAfterSplitting(t.root, leaf, ptr.Key, ptr)
 }
 
+func (t *Tree) Put(key []byte, val int) {
+	if find(t.root, key) != nil {
+		return
+	}
+
+	ptr := &Record{key, val}
+
+	if t.root == nil {
+		t.root = startNewTree(key, ptr)
+		return
+	}
+
+	leaf := findLeaf(t.root, key)
+
+	if leaf.numKeys < ORDER-1 {
+		insertIntoLeaf(leaf, key, ptr)
+		return
+	}
+
+	t.root = insertIntoLeafAfterSplitting(t.root, leaf, key, ptr)
+
+}
+
 /*
  *	inserting internals
  */
@@ -157,13 +180,13 @@ func getLeftIndex(parent, left *node) int {
 
 // insert a new key, ptr to a node
 func insertIntoNode(root, n *node, leftIndex int, key []byte, right *node) *node {
-	/*for i := n.numKeys; i > leftIndex; i-- {
+	for i := n.numKeys; i > leftIndex; i-- {
 		n.ptrs[i+1] = n.ptrs[i]
 		n.keys[i] = n.keys[i-1]
-	}*/
+	}
 
-	copy(n.ptrs[leftIndex+2:], n.ptrs[leftIndex+1:])
-	copy(n.keys[leftIndex+1:], n.keys[leftIndex:])
+	//copy(n.ptrs[leftIndex+2:], n.ptrs[leftIndex+1:])
+	//copy(n.keys[leftIndex+1:], n.keys[leftIndex:])
 
 	n.ptrs[leftIndex+1] = right
 	n.keys[leftIndex] = key
@@ -177,7 +200,7 @@ func insertIntoNode(root, n *node, leftIndex int, key []byte, right *node) *node
 // insert a new key, ptr to a node causing node to split
 func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte, right *node) *node {
 	var i, j int
-	//var child *node
+	var child *node
 	//var prime []byte
 
 	//tmpKeys := PtempKeys.Get().([ORDER][]byte)
@@ -186,31 +209,25 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
 	var tmpKeys [ORDER][]byte
 	var tmpPtrs [ORDER + 1]interface{}
 
-	for i < oldNode.numKeys+1 {
+	for i, j = 0, 0; i < oldNode.numKeys+1; i, j = i+1, j+1 {
 		if j == leftIndex+1 {
 			j++
 		}
 		tmpPtrs[j] = oldNode.ptrs[i]
-		i++
-		j++
 	}
 
-	i = 0
-	j = 0
-
-	for i < oldNode.numKeys {
+	for i, j = 0, 0; i < oldNode.numKeys; i, j = i+1, j+1 {
 		if j == leftIndex {
 			j++
 		}
 		tmpKeys[j] = oldNode.keys[i]
-		i++
-		j++
 	}
 
 	tmpPtrs[leftIndex+1] = right
 	tmpKeys[leftIndex] = key
 
 	split := cut(ORDER)
+
 	newNode := &node{}
 	oldNode.numKeys = 0
 
@@ -237,12 +254,13 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
 		newNode.numKeys = end
 	*/
 
-	j = 0
-	for i++; i < ORDER; i++ {
+	//j = 0
+	//i++
+	for i, j = i+1, 0; i < ORDER; i, j = i+1, j+1 {
 		newNode.ptrs[j] = tmpPtrs[i]
 		newNode.keys[j] = tmpKeys[i]
 		newNode.numKeys++
-		j++
+		//j++
 	}
 
 	newNode.ptrs[j] = tmpPtrs[i]
@@ -260,10 +278,10 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
 	newNode.parent = oldNode.parent
 
 	for i = 0; i <= newNode.numKeys; i++ {
-		/*child = newNode.ptrs[i].(*node)
-		child.parent = newNode*/
+		child = newNode.ptrs[i].(*node)
+		child.parent = newNode
 
-		newNode.ptrs[i].(*node).parent = newNode
+		//newNode.ptrs[i].(*node).parent = newNode
 	}
 	return insertIntoParent(root, oldNode, prime, newNode)
 }
@@ -273,6 +291,7 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
  */
 
 // inserts a new key and *record into a leaf, then returns leaf
+// NOTE: May need to return leaf
 func insertIntoLeaf(leaf *node, key []byte, ptr *Record) {
 	var i, insertionPoint int
 	for insertionPoint < leaf.numKeys && bytes.Compare(leaf.keys[insertionPoint], key) == -1 {
@@ -300,14 +319,13 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key []byte, ptr *Record) *no
 	var i, j int
 	// copy leaf keys & ptrs to temp
 	// reserve space at insertion index for new record
-	for i < leaf.numKeys {
+
+	for i, j = 0, 0; i < leaf.numKeys; i, j = i+1, j+1 {
 		if j == insertionIndex {
 			j++
 		}
 		tmpKeys[j] = leaf.keys[i]
 		tmpPtrs[j] = leaf.ptrs[i]
-		i++
-		j++
 	}
 	tmpKeys[insertionIndex] = key
 	tmpPtrs[insertionIndex] = ptr
@@ -325,12 +343,10 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key []byte, ptr *Record) *no
 	newLeaf := &node{isLeaf: true}
 
 	// writing to new leaf from split point to end of giginal leaf pre split
-	j = 0
-	for i = split; i < ORDER; i++ {
+	for i, j = split, 0; i < ORDER; i, j = i+1, j+1 {
 		newLeaf.ptrs[j] = tmpPtrs[i]
 		newLeaf.keys[j] = tmpKeys[i]
 		newLeaf.numKeys++
-		j++
 	}
 	// freeing tmps...
 	for i = 0; i < ORDER; i++ {
@@ -346,7 +362,8 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key []byte, ptr *Record) *no
 		newLeaf.ptrs[i] = nil
 	}
 	newLeaf.parent = leaf.parent
-	return insertIntoParent(root, leaf, newLeaf.keys[0], newLeaf)
+	newKey := newLeaf.keys[0]
+	return insertIntoParent(root, leaf, newKey, newLeaf)
 }
 
 // Get returns the record for
@@ -368,9 +385,50 @@ func (t *Tree) Get(key []byte) *Record {
 	return n.ptrs[i].(*Record)
 }
 
+func find(root *node, key []byte) *Record {
+	//n := findLeaf(root, key)
+
+	var n *node = findLeaf(root, key)
+
+	if n == nil {
+		//println("n == nil")
+		return nil
+	}
+	var i int
+	for i = 0; i < n.numKeys; i++ {
+		if bytes.Compare(n.keys[i], key) == 0 {
+			break
+		}
+	}
+	if i == n.numKeys {
+		return nil
+	}
+	return n.ptrs[i].(*Record)
+}
+
 /*
  *	Get node internals
  */
+
+func _findLeaf(root *node, key []byte) *node {
+	var i int
+	var c *node = root
+	if c == nil {
+		return c
+	}
+	for !c.isLeaf {
+		i = 0
+		for i < c.numKeys {
+			if bytes.Compare(key, c.keys[i]) >= 0 {
+				i++
+			} else {
+				break
+			}
+		}
+		c = c.ptrs[i].(*node)
+	}
+	return c
+}
 
 // find leaf type node for a given key
 func findLeaf(n *node, key []byte) *node {
@@ -385,15 +443,12 @@ func findLeaf(n *node, key []byte) *node {
 
 // binary search utility
 func search(n *node, key []byte) int {
-	lo, hi := 0, n.numKeys-1
-	for lo <= hi {
+	lo, hi := 0, n.numKeys
+	for lo < hi {
 		md := (lo + hi) >> 1
-		switch cmp := bytes.Compare(key, n.keys[md]); {
-		case cmp > 0:
+		if bytes.Compare(key, n.keys[md]) >= 0 {
 			lo = md + 1
-		case cmp == 0:
-			return md
-		default:
+		} else {
 			hi = md - 1
 		}
 	}

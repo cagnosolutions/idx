@@ -31,7 +31,7 @@ func set(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		if k := r.FormValue("key"); k != "" {
 			i, _ := strconv.Atoi(k)
-			t.Set([]byte(k), i)
+			t.Put([]byte(k), i)
 			fmt.Fprintf(w, `%s`, t)
 			return
 		}
