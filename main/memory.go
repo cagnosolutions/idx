@@ -1,6 +1,6 @@
 package main
 
-import (
+/*import (
 	"fmt"
 	"time"
 	"github.com/cagnosolutions/idx"
@@ -20,4 +20,4 @@ func main() {
 	MemoryTesting_Set()
 	fmt.Printf("Loaded tree with %d items, sleeping for 10 seconds...\n", N)
 	time.Sleep(time.Duration(10)*time.Second)
-}
+}*/

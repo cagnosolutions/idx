@@ -3,10 +3,11 @@ package idx
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 )
 
-const ORDER = 8
+const ORDER = 128
 
 // node represents a tree's node
 type node struct {
@@ -157,13 +158,13 @@ func getLeftIndex(parent, left *node) int {
 
 // insert a new key, ptr to a node
 func insertIntoNode(root, n *node, leftIndex int, key []byte, right *node) *node {
-	for i := n.numKeys; i > leftIndex; i-- {
+	/*for i := n.numKeys; i > leftIndex; i-- {
 		n.ptrs[i+1] = n.ptrs[i]
 		n.keys[i] = n.keys[i-1]
-	}
+	}*/
 
-	//copy(n.ptrs[leftIndex+2:], n.ptrs[leftIndex+1:])
-	//copy(n.keys[leftIndex+1:], n.keys[leftIndex:])
+	copy(n.ptrs[leftIndex+2:], n.ptrs[leftIndex+1:])
+	copy(n.keys[leftIndex+1:], n.keys[leftIndex:])
 
 	n.ptrs[leftIndex+1] = right
 	n.keys[leftIndex] = key
@@ -177,7 +178,7 @@ func insertIntoNode(root, n *node, leftIndex int, key []byte, right *node) *node
 // insert a new key, ptr to a node causing node to split
 func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte, right *node) *node {
 	var i, j int
-	var child *node
+	//var child *node
 	//var prime []byte
 
 	//tmpKeys := PtempKeys.Get().([ORDER][]byte)
@@ -255,10 +256,10 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
 	newNode.parent = oldNode.parent
 
 	for i = 0; i <= newNode.numKeys; i++ {
-		child = newNode.ptrs[i].(*node)
-		child.parent = newNode
+		//child = newNode.ptrs[i].(*node)
+		//child.parent = newNode
 
-		//newNode.ptrs[i].(*node).parent = newNode
+		newNode.ptrs[i].(*node).parent = newNode
 	}
 	return insertIntoParent(root, oldNode, prime, newNode)
 }
@@ -403,6 +404,27 @@ func findLeaf(root *node, key []byte) *node {
 			}
 		}
 		c = c.ptrs[i].(*node)
+	}
+	return c
+}
+
+func __findLeaf(root *node, key []byte) *node {
+	var c *node = root
+	if c == nil {
+		return c
+	}
+
+	var i int
+
+	for !c.isLeaf {
+		i = 0
+
+		i = sort.Search(c.numKeys, func(i int) bool {
+			return bytes.Compare(key, c.keys[i]) >= 0
+		})
+
+		c = c.ptrs[i].(*node)
+
 	}
 	return c
 }
