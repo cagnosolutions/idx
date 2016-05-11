@@ -15,7 +15,6 @@ var mu sync.RWMutex
 var tree = idx.NewTree()
 
 func TestSet(t *testing.T) {
-	fmt.Println("Ran")
 	for i := 0; i < COUNT; i++ {
 		k := fmt.Sprintf("key-%.5d", i)
 		tree.Set([]byte(k), i)

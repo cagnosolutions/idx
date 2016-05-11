@@ -7,9 +7,8 @@ import (
 	"strings"
 )
 
-const ORDER = 128
+const ORDER = 64
 
-// node represents a tree's node
 type node struct {
 	numKeys int
 	keys    [ORDER - 1][]byte
@@ -53,9 +52,11 @@ func (t *Tree) Has(key []byte) bool {
 // Add inserts a new record using provided key.
 // It only inserts if the key does not already exist.
 func (t *Tree) Add(key []byte, val int) {
+	// create record ptr for given value
+	ptr := &Record{key, val}
 	// if the tree is empty
 	if t.root == nil {
-		t.root = startNewTree(key, &Record{key, val})
+		t.root = startNewTree(key, ptr)
 		return
 	}
 	// tree already exists, lets see what we
@@ -65,8 +66,6 @@ func (t *Tree) Add(key []byte, val int) {
 	if leaf.hasKey(key) {
 		return
 	}
-	// create record ptr for given value
-	ptr := &Record{key, val}
 	// tree already exists, and ready to insert into
 	if leaf.numKeys < ORDER-1 {
 		insertIntoLeaf(leaf, ptr.Key, ptr)
@@ -82,13 +81,13 @@ func (t *Tree) Add(key []byte, val int) {
 // overwrite duplicate keys, as it does
 // not check to see if the key exists...
 func (t *Tree) Set(key []byte, val int) {
+	// create record ptr for given value
+	ptr := &Record{key, val}
 	// if the tree is empty, start a new one
 	if t.root == nil {
 		t.root = startNewTree(key, &Record{key, val})
 		return
 	}
-	// create record ptr for given value
-	ptr := &Record{key, val}
 	// tree already exists, and ready to insert a non
 	// duplicate value. find proper leaf to insert into
 	leaf := findLeaf(t.root, ptr.Key)
@@ -172,17 +171,11 @@ func insertIntoNode(root, n *node, leftIndex int, key []byte, right *node) *node
 	return root
 }
 
-//var PtempKeys = sync.Pool{New: func() interface{} { return [ORDER][]byte{} }}
-//var PtempPtrs = sync.Pool{New: func() interface{} { return [ORDER + 1]interface{}{} }}
-
 // insert a new key, ptr to a node causing node to split
 func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte, right *node) *node {
 	var i, j int
 	//var child *node
 	//var prime []byte
-
-	//tmpKeys := PtempKeys.Get().([ORDER][]byte)
-	//tmpPtrs := PtempPtrs.Get().([ORDER + 1]interface{})
 
 	var tmpKeys [ORDER][]byte
 	var tmpPtrs [ORDER + 1]interface{}
@@ -243,15 +236,12 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key []byte
 
 	newNode.ptrs[j] = tmpPtrs[i]
 
-	// free tmps...
+	// freeitmps...
 	for i = 0; i < ORDER; i++ {
 		tmpKeys[i] = nil
 		tmpPtrs[i] = nil
 	}
 	tmpPtrs[ORDER] = nil
-
-	//PtempKeys.Put(tmpKeys)
-	//PtempPtrs.Put(tmpPtrs)
 
 	newNode.parent = oldNode.parent
 
@@ -288,12 +278,16 @@ func insertIntoLeaf(leaf *node, key []byte, ptr *Record) {
 // to exceed the order, causing the leaf to be split
 func insertIntoLeafAfterSplitting(root, leaf *node, key []byte, ptr *Record) *node {
 	// perform linear search to find index to insert new record
+
 	var insertionIndex int
+
 	for insertionIndex < ORDER-1 && bytes.Compare(leaf.keys[insertionIndex], key) == -1 {
 		insertionIndex++
 	}
+
 	var tmpKeys [ORDER][]byte
 	var tmpPtrs [ORDER]interface{}
+
 	var i, j int
 	// copy leaf keys & ptrs to temp
 	// reserve space at insertion index for new record
@@ -318,6 +312,7 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key []byte, ptr *Record) *no
 		leaf.numKeys++
 	}
 	// create new leaf
+
 	newLeaf := &node{isLeaf: true}
 
 	// writing to new leaf from split point to end of giginal leaf pre split
@@ -326,21 +321,27 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key []byte, ptr *Record) *no
 		newLeaf.keys[j] = tmpKeys[i]
 		newLeaf.numKeys++
 	}
+
 	// freeing tmps...
 	for i = 0; i < ORDER; i++ {
 		tmpPtrs[i] = nil
 		tmpKeys[i] = nil
 	}
+
 	newLeaf.ptrs[ORDER-1] = leaf.ptrs[ORDER-1]
 	leaf.ptrs[ORDER-1] = newLeaf
+
 	for i = leaf.numKeys; i < ORDER-1; i++ {
 		leaf.ptrs[i] = nil
 	}
+
 	for i = newLeaf.numKeys; i < ORDER-1; i++ {
 		newLeaf.ptrs[i] = nil
 	}
+
 	newLeaf.parent = leaf.parent
 	newKey := newLeaf.keys[0]
+
 	return insertIntoParent(root, leaf, newKey, newLeaf)
 }
 
