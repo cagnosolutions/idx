@@ -1,7 +1,9 @@
 package idx
 
 import (
+	"encoding/json"
 	"errors"
+	"reflect"
 	"sync"
 )
 
@@ -24,7 +26,7 @@ func NewStore(path string) *Store {
 	st.index = NewTree()
 	st.engine = OpenMappedData(path)
 	for key, page := range st.engine.All() {
-		st.index.Set([]byte(key), page)
+		st.index.Set([]byte(key), Itob(int64(page)))
 	}
 	return st
 }
@@ -41,7 +43,7 @@ func (st *Store) Add(k []byte, v interface{}) error {
 		if page == -1 {
 			return ErrStoreFull
 		}
-		st.index.Set(k, page)
+		st.index.Set(k, Itob(int64(page)))
 		return nil
 	}
 	return ErrExists
@@ -100,3 +102,46 @@ func (st *Store) All(ptr interface{}) error {
 	return nil
 }
 */
+
+// store.go -- encode into a document
+func encode(k string, v interface{}) ([]byte, error) {
+	data := []interface{}{k, v}
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) > SYS_PAGE {
+		return nil, ErrTooLarge
+	}
+	return b, nil
+}
+
+// store.go -- decode doc into a pointer supplied by the user
+func decode(b []byte, v interface{}) error {
+	if reflect.ValueOf(v).Kind() != reflect.Ptr {
+		return ErrNonPtrVal
+	}
+	if err := json.Unmarshal(b, v); err != nil {
+		return err
+	}
+	return nil
+}
+
+// bpt.go, file.go -- return document value from page
+func getdoc(b []byte, klen int) []byte {
+	for i, j, set := klen+4, len(b)-1, 1; i < j; i, j = i+1, j-1 {
+		if b[i] == '[' {
+			set++
+		}
+		if b[i] == ']' {
+			set--
+		}
+		if set == 0 || b[j] == ']' {
+			if b[i] == ']' {
+				return b[klen+4 : i]
+			}
+			return b[klen+4 : j]
+		}
+	}
+	return b
+}

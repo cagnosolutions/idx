@@ -2,6 +2,7 @@ package idx
 
 import (
 	"os"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -76,6 +77,16 @@ func OpenFile(path string) (*os.File, string, int) {
 		panic(err)
 	}
 	return fd, sanitize(fi.Name()), int(fi.Size())
+}
+
+func sanitize(path string) string {
+	if path[len(path)-1] == '/' {
+		return path[:len(path)-1]
+	}
+	if x := strings.Index(path, "."); x != -1 {
+		return path[:x]
+	}
+	return path
 }
 
 // round up to nearest pagesize -- helper
